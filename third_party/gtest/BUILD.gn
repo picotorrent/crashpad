@@ -371,6 +371,9 @@ if (crashpad_is_in_chromium) {
         "-Wno-unused-private-field",
       ]
     }
+    if (crashpad_is_win) {
+      cflags = [ "/wd5046" ]  # VS 15.8.8 new warning
+    }
   }
 
   test("gmock_link_test") {
