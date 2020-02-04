@@ -414,9 +414,10 @@ class CrashpadClient {
   bool WaitForHandlerStart(unsigned int timeout_ms);
 
    //! \brief Requests that the handler capture a dump even though there hasn't
-  //!     been a crash.
+  //!     been a crash. Method allows developer to pass additional information 
+  //!     about current exception.
   //!
-  //! \param[in] pointer A `EXCEPTION_POINTERS`to current exception received in application 
+  //! \param[in] pointer A `EXCEPTION_POINTERS` , pointer to current exception received in application 
   static void DumpWithoutCrashWithException(EXCEPTION_POINTERS* pointer);
   
   //! \brief Requests that the handler capture a dump even though there hasn't

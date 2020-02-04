@@ -747,7 +747,7 @@ bool CrashpadClient::WaitForHandlerStart(unsigned int timeout_ms) {
 
 void CrashpadClient::DumpWithoutCrashWithException(EXCEPTION_POINTERS* pointer)
 {	
-  if (g_signal_non_crash_dump == INVALID_HANDLE_VALUE ||
+	if (g_signal_non_crash_dump == INVALID_HANDLE_VALUE ||
       g_non_crash_dump_done == INVALID_HANDLE_VALUE) {
     LOG(ERROR) << "not connected";
     return;
