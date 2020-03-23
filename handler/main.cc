@@ -18,6 +18,24 @@
 #include "tools/tool_support.h"
 
 #if defined(OS_WIN)
+#if defined _M_IX86
+#pragma comment( \
+    linker,      \
+    "/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='x86' publicKeyToken='6595b64144ccf1df' language='*'\"")
+#elif defined _M_IA64
+#pragma comment( \
+    linker,      \
+    "/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='ia64' publicKeyToken='6595b64144ccf1df' language='*'\"")
+#elif defined _M_X64
+#pragma comment( \
+    linker,      \
+    "/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='amd64' publicKeyToken='6595b64144ccf1df' language='*'\"")
+#else
+#pragma comment( \
+    linker,      \
+    "/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
+#endif
+
 #include <windows.h>
 #endif
 
@@ -41,6 +59,7 @@ int HandlerMainAdaptor(int argc, char* argv[]) {
 // is used by crashpad_handler.exe. It’s also used by crashpad_handler.com when
 // produced by editbin from a copy of crashpad_handler.exe.
 int APIENTRY wWinMain(HINSTANCE, HINSTANCE, wchar_t*, int) {
+  SetProcessDPIAware();
   return crashpad::ToolSupport::Wmain(__argc, __wargv, HandlerMainAdaptor);
 }
 

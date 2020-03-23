@@ -43,6 +43,37 @@
 #include "handler/mac/file_limit_annotation.h"
 #endif  // OS_MACOSX
 
+#if defined(OS_WIN)
+#include <Windows.h>
+#include <CommCtrl.h>
+
+HRESULT CALLBACK TaskDialogCallback(HWND hwnd,
+                           UINT msg,
+                           WPARAM wParam,
+                           LPARAM lParam,
+                           LONG_PTR lpRefData) {
+  switch (msg) {
+    case TDN_BUTTON_CLICKED: {
+      int btn = static_cast<int>(wParam);
+
+      switch (btn) {
+        case IDOK: {
+          SendMessage(hwnd, TDM_ENABLE_BUTTON, IDOK, 0);
+          break;
+        }
+      }
+      break;
+    }
+    case TDN_CREATED: {
+      SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE);
+      break;
+    }
+  }
+
+  return S_OK;
+}
+#endif
+
 namespace crashpad {
 
 CrashReportUploadThread::CrashReportUploadThread(CrashReportDatabase* database,
@@ -219,9 +250,39 @@ void CrashReportUploadThread::ProcessPendingReport(
       return;
   }
 
+  const TASKDIALOG_BUTTON buttons[] = {{IDOK, L"Send crash report"}};
+
+  TASKDIALOGCONFIG config = {0};
+  config.cbSize = sizeof(config);
+  config.hInstance = GetModuleHandle(nullptr);
+  config.dwCommonButtons = TDCBF_CLOSE_BUTTON;
+  config.pszMainIcon = TD_ERROR_ICON;
+  config.pszMainInstruction = L"PicoTorrent crashed";
+  config.pszContent =
+      L"Unfortunately, PicoTorrent crashed. You can send a crash report to "
+      L"help us debug the issue.";
+  config.pszWindowTitle = L"PicoTorrent";
+  config.pszVerificationText = L"Include log file";
+  config.pButtons = buttons;
+  config.cButtons = ARRAYSIZE(buttons);
+  config.dwFlags = TDF_USE_COMMAND_LINKS | TDF_VERIFICATION_FLAG_CHECKED;
+  config.pfCallback = TaskDialogCallback;
+  config.lpCallbackData = reinterpret_cast<LONG_PTR>(this);
+
+  int nButtonPressed = 0;
+  BOOL fVerificationFlagChecked = FALSE;
+
+  TaskDialogIndirect(&config, &nButtonPressed, NULL, &fVerificationFlagChecked);
+
+  if (nButtonPressed != IDOK) {
+    // Mark upload as complete even though we didn't upload anything...
+    database_->RecordUploadComplete(std::move(upload_report), std::string());
+    return;
+  }
+
   std::string response_body;
-  UploadResult upload_result =
-      UploadReport(upload_report.get(), &response_body);
+  UploadResult upload_result = UploadReport(
+      upload_report.get(), fVerificationFlagChecked == TRUE, &response_body);
   switch (upload_result) {
     case UploadResult::kSuccess:
       database_->RecordUploadComplete(std::move(upload_report), response_body);
@@ -245,6 +306,7 @@ void CrashReportUploadThread::ProcessPendingReport(
 
 CrashReportUploadThread::UploadResult CrashReportUploadThread::UploadReport(
     const CrashReportDatabase::UploadReport* report,
+    bool include_attachments,
     std::string* response_body) {
   std::map<std::string, std::string> parameters;
 
@@ -282,9 +344,11 @@ CrashReportUploadThread::UploadResult CrashReportUploadThread::UploadReport(
     }
   }
 
-  for (const auto& it : report->GetAttachments()) {
-    http_multipart_builder.SetFileAttachment(
-        it.first, it.first, it.second, "application/octet-stream");
+  if (include_attachments) {
+    for (const auto& it : report->GetAttachments()) {
+      http_multipart_builder.SetFileAttachment(
+          it.first, it.first, it.second, "application/octet-stream");
+    }
   }
 
   http_multipart_builder.SetFileAttachment(kMinidumpKey,
